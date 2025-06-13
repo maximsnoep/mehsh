@@ -8,6 +8,25 @@ repository = "https://github.com/maximsnoep/mehsh"
 keywords = ["mesh", "geometry", "processing", "rust"]
 categories = ["graphics", "data-structures"]
 
+[lints.clippy]
+all = { level = "warn", priority = 1 }
+pedantic = { level = "warn", priority = 2 }
+nursery = { level = "warn", priority = 3 }
+cargo = { level = "warn", priority = 4 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+
+# Allowed noisy lints
+missing_panics_doc = "allow" 
+missing_errors_doc = "allow" 
+module_name_repetitions = "allow"
+similar_names = "allow"
+
 [features]
 default = []
 bevy = ["dep:bevy_math", "dep:bevy_color", "dep:bevy_gizmos", "dep:bevy_render"]
@@ -20,9 +39,7 @@ all = ["bevy", "petgraph", "obj", "stl"]
 # core
 itertools = "0.14.0"
 serde = {version = "1.0.219", features = ["serde_derive"] }
-serde_json = "1.0.140"
 rand = "0.9.1"
-ordered-float = "5.0.0"
 nalgebra = { version = "0.33.2", features = ["serde-serialize"] }
 thiserror = "2.0.12"
 slotmap = { version = "1.0.7", features = ["serde"] } # for storing vertices, edges, and faces

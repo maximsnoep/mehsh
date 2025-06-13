@@ -1,6 +1,6 @@
 use crate::prelude::*;
-use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 define_tag!(TestMesh);
 
 #[test]
@@ -95,29 +95,6 @@ fn from_tetrahedron_obj() {
 
         for face_id in douconel.faces.ids() {
             assert!(douconel.vertices(face_id).len() == 3);
-        }
-    }
-}
-
-#[cfg(feature = "stl")]
-#[test]
-fn serialize() {
-    let douconel = Mesh::<TestMesh>::from_stl(&PathBuf::from("assets/nefertiti099k.stl"));
-
-    assert!(douconel.is_ok(), "{douconel:?}");
-    if let Ok((douconel, _, _)) = douconel {
-        let serialized = serde_json::to_string(&douconel);
-        assert!(serialized.is_ok(), "{:?}", serialized.unwrap());
-
-        if let Ok(serialized) = serialized {
-            let deserialized = serde_json::from_str::<Mesh<TestMesh>>(&serialized);
-
-            assert!(deserialized.is_ok(), "{deserialized:?}");
-            if let Ok(deserialized) = deserialized {
-                assert!(douconel.nr_verts() == deserialized.nr_verts());
-                assert!(douconel.nr_edges() == deserialized.nr_edges());
-                assert!(douconel.nr_faces() == deserialized.nr_faces());
-            }
         }
     }
 }

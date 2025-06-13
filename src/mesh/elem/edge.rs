@@ -4,7 +4,9 @@ use core::panic;
 impl<M: Tag> Mesh<M> {
     #[must_use]
     pub fn root(&self, id: EdgeKey<M>) -> VertKey<M> {
-        self.edge_root.get(id).unwrap_or_else(|| panic!("{id:?} has no root"))
+        self.edge_root
+            .get(id)
+            .unwrap_or_else(|| panic!("{id:?} has no root"))
     }
 
     #[must_use]
@@ -14,12 +16,16 @@ impl<M: Tag> Mesh<M> {
 
     #[must_use]
     pub fn twin(&self, id: EdgeKey<M>) -> EdgeKey<M> {
-        self.edge_twin.get(id).unwrap_or_else(|| panic!("{id:?} has no twin"))
+        self.edge_twin
+            .get(id)
+            .unwrap_or_else(|| panic!("{id:?} has no twin"))
     }
 
     #[must_use]
     pub fn next(&self, id: EdgeKey<M>) -> EdgeKey<M> {
-        self.edge_next.get(id).unwrap_or_else(|| panic!("{id:?} has no next"))
+        self.edge_next
+            .get(id)
+            .unwrap_or_else(|| panic!("{id:?} has no next"))
     }
 
     // Returns the four edges around a given edge.
@@ -35,7 +41,9 @@ impl<M: Tag> Mesh<M> {
 
     #[must_use]
     pub fn face(&self, id: EdgeKey<M>) -> FaceKey<M> {
-        self.edge_face.get(id).unwrap_or_else(|| panic!("{id:?} has no face"))
+        self.edge_face
+            .get(id)
+            .unwrap_or_else(|| panic!("{id:?} has no face"))
     }
 
     #[must_use]
