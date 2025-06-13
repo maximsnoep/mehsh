@@ -1,0 +1,40 @@
+[package]
+name = "mehsh"
+version = "0.0.1"
+edition = "2024"
+description = "a meh mesh processing library in Rust"
+license = "MIT"
+repository = "https://github.com/maximsnoep/mehsh"
+keywords = ["mesh", "geometry", "processing", "rust"]
+categories = ["graphics", "data-structures"]
+
+[features]
+default = []
+bevy = ["dep:bevy_math", "dep:bevy_color", "dep:bevy_gizmos", "dep:bevy_render"]
+petgraph = ["dep:petgraph"]
+obj = ["dep:obj"]
+stl = ["dep:stl_io"]
+all = ["bevy", "petgraph", "obj", "stl"]
+
+[dependencies]
+# core
+itertools = "0.14.0"
+serde = {version = "1.0.219", features = ["serde_derive"] }
+serde_json = "1.0.140"
+rand = "0.9.1"
+ordered-float = "5.0.0"
+nalgebra = { version = "0.33.2", features = ["serde-serialize"] }
+thiserror = "2.0.12"
+slotmap = { version = "1.0.7", features = ["serde"] } # for storing vertices, edges, and faces
+bimap = "0.6.3" # for face and vertex ID maps
+kdtree = { version = "0.7.0", features = ["serialize"] } # for vertex lookup
+bvh = { version = "0.11.0", features = ["serde"] } # for face lookup
+
+# Optional features
+bevy_math = { version = "0.16.0", optional = true }
+bevy_color = { version = "0.16.0", optional = true }
+bevy_gizmos = { version = "0.16.0", optional = true }
+bevy_render = { version = "0.16.0", optional = true }
+petgraph = { version = "0.8.2", optional = true }
+obj = { version = "0.10.2", optional = true }
+stl_io = { version = "0.8.5", optional = true }

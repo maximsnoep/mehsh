@@ -1,0 +1,159 @@
+use crate::prelude::*;
+use bevy_math::Vec3;
+use core::panic;
+use std::collections::HashMap;
+
+#[derive(Default)]
+pub struct BevyMeshBuilder {
+    positions: Vec<Vec3>,
+    normals: Vec<Vec3>,
+    colors: Vec<[f32; 4]>,
+    uvs: Vec<[f32; 2]>,
+}
+
+impl BevyMeshBuilder {
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            positions: Vec::with_capacity(capacity),
+            normals: Vec::with_capacity(capacity),
+            colors: Vec::with_capacity(capacity),
+            uvs: Vec::with_capacity(capacity),
+        }
+    }
+
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn add_vertex(&mut self, position: &Vector3D, normal: &Vector3D, color: &Color) {
+        self.positions.push(to_bevy_vec(position));
+        self.normals.push(to_bevy_vec(normal));
+        self.colors.push(bevy_color::ColorToComponents::to_f32_array(
+            bevy_color::Color::srgb(color[0], color[1], color[2]).to_linear(),
+        ));
+        self.uvs.push([0., 0.]);
+    }
+
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn normalize(&mut self, scale: f64, translation: Vector3D) {
+        for position in &mut self.positions {
+            *position = Vec3::new(
+                position.x.mul_add(scale as f32, translation.x as f32),
+                position.y.mul_add(scale as f32, translation.y as f32),
+                position.z.mul_add(scale as f32, translation.z as f32),
+            );
+        }
+    }
+
+    #[must_use]
+    pub fn build(self) -> bevy_render::mesh::Mesh {
+        bevy_render::mesh::Mesh::new(
+            bevy_render::mesh::PrimitiveTopology::TriangleList,
+            bevy_render::render_asset::RenderAssetUsages::RENDER_WORLD | bevy_render::render_asset::RenderAssetUsages::MAIN_WORLD,
+        )
+        .with_inserted_indices(bevy_render::mesh::Indices::U32((0..u32::try_from(self.positions.len()).unwrap()).collect()))
+        .with_inserted_attribute(bevy_render::mesh::Mesh::ATTRIBUTE_POSITION, self.positions)
+        .with_inserted_attribute(bevy_render::mesh::Mesh::ATTRIBUTE_NORMAL, self.normals)
+        .with_inserted_attribute(bevy_render::mesh::Mesh::ATTRIBUTE_COLOR, self.colors)
+        .with_inserted_attribute(bevy_render::mesh::Mesh::ATTRIBUTE_UV_0, self.uvs)
+    }
+}
+
+/// Construct a Bevy mesh object (one that can be rendered using Bevy).
+/// Requires a `color_map` to assign colors to faces. If no color is assigned to a face, it will default to black.
+impl<M: Tag> Mesh<M>
+where
+    M: std::default::Default + std::cmp::Eq + std::hash::Hash + Copy + Clone,
+{
+    #[must_use]
+    pub fn bevy(&self, color_map: &HashMap<FaceKey<M>, [f32; 3]>) -> (bevy_render::mesh::Mesh, Vector3D, f64) {
+        if self.faces.is_empty() {
+            return (BevyMeshBuilder::with_capacity(0).build(), Vector3D::new(0., 0., 0.), 1.);
+        }
+
+        let k = self.vertices(self.faces.ids().next().unwrap()).len();
+
+        let mut bevy_mesh_builder = BevyMeshBuilder::with_capacity(self.faces.len() * (k - 2) * 3);
+
+        for face_id in self.faces.ids() {
+            let corners = self.vertices(face_id);
+
+            match corners.len() {
+                0..=2 => panic!("Face {:?} has too few corners", face_id),
+                3 => {
+                    let triangle = [corners[0], corners[1], corners[2]];
+                    for vertex_id in triangle {
+                        bevy_mesh_builder.add_vertex(
+                            &self.position(vertex_id),
+                            &self.normal(vertex_id),
+                            color_map.get(&face_id).unwrap_or(&[0., 0., 0.]),
+                        );
+                    }
+                }
+                4 => {
+                    let d1 = (self.position(corners[0]) - self.position(corners[2])).norm();
+                    let d2 = (self.position(corners[1]) - self.position(corners[3])).norm();
+                    let triangle = {
+                        if d1 < d2 {
+                            [corners[0], corners[1], corners[2], corners[2], corners[3], corners[0]]
+                        } else {
+                            [corners[0], corners[1], corners[3], corners[1], corners[2], corners[3]]
+                        }
+                    };
+                    for vertex_id in triangle {
+                        bevy_mesh_builder.add_vertex(
+                            &self.position(vertex_id),
+                            &self.normal(vertex_id),
+                            color_map.get(&face_id).unwrap_or(&[0., 0., 0.]),
+                        );
+                    }
+                }
+                _ => {
+                    // not implemented yet
+                    unimplemented!("Face {:?} has degree more than 4 ({})", face_id, corners.len());
+                }
+            }
+        }
+
+        let (scale, translation) = self.scale_translation();
+        bevy_mesh_builder.normalize(scale, translation);
+        let mesh = bevy_mesh_builder.build();
+        (mesh, translation, scale)
+    }
+
+    // Construct a Bevy gizmos object of the wireframe (one that can be rendered using Bevy)
+    #[must_use]
+    pub fn gizmos(&self, color: [f32; 3]) -> bevy_gizmos::GizmoAsset {
+        let mut gizmo = bevy_gizmos::GizmoAsset::new();
+        let (scale, translation) = self.scale_translation();
+
+        for &(u, v) in &self.edges_positions() {
+            let ut = transform_coordinates(u, translation, scale);
+            let vt = transform_coordinates(v, translation, scale);
+            gizmo.line(to_bevy_vec(&ut), to_bevy_vec(&vt), bevy_color::Color::srgb(color[0], color[1], color[2]));
+        }
+
+        gizmo
+    }
+
+    #[must_use]
+    pub fn scale_translation(&self) -> (f64, Vector3D) {
+        let scale = self.scale();
+        let (center, _half_extents) = self.get_aabb();
+        (scale, -scale * center)
+    }
+
+    #[must_use]
+    pub fn scale(&self) -> f64 {
+        let (_, half_extents) = self.get_aabb();
+        20. * (1. / half_extents.max())
+    }
+}
+
+// (p * s) + t = p'
+#[must_use]
+fn transform_coordinates(position: Vector3D, translation: Vector3D, scale: f64) -> Vector3D {
+    position * scale + translation
+}
+
+fn to_bevy_vec(vec: &Vector3D) -> Vec3 {
+    Vec3::new(vec.x as f32, vec.y as f32, vec.z as f32)
+}
