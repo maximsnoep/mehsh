@@ -221,31 +221,31 @@ where
         }
     }
 
-    pub fn insert(&mut self, key: &Key<K, M>, val: V) {
+    pub fn insert(&mut self, key: Key<K, M>, val: V) {
         self.map.insert(key.raw, val);
     }
 
-    pub fn remove(&mut self, key: &Key<K, M>) -> Option<V> {
+    pub fn remove(&mut self, key: Key<K, M>) -> Option<V> {
         self.map.remove(key.raw)
     }
 
     #[must_use]
-    pub fn get(&self, key: &Key<K, M>) -> Option<&V> {
+    pub fn get(&self, key: Key<K, M>) -> Option<&V> {
         self.map.get(key.raw)
     }
 
     #[must_use]
-    pub fn get_or_panic(&self, key: &Key<K, M>) -> &V {
+    pub fn get_or_panic(&self, key: Key<K, M>) -> &V {
         self.map.get(key.raw).unwrap()
     }
 
     #[must_use]
-    pub fn get_mut(&mut self, key: &Key<K, M>) -> Option<&mut V> {
+    pub fn get_mut(&mut self, key: Key<K, M>) -> Option<&mut V> {
         self.map.get_mut(key.raw)
     }
 
     #[must_use]
-    pub fn contains_key(&self, key: &Key<K, M>) -> bool {
+    pub fn contains_key(&self, key: Key<K, M>) -> bool {
         self.map.contains_key(key.raw)
     }
 
