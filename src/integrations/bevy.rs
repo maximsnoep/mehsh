@@ -4,14 +4,14 @@ use core::panic;
 use std::collections::HashMap;
 
 #[derive(Default)]
-pub struct BevyMeshBuilder {
+pub struct MeshBuilder {
     positions: Vec<Vec3>,
     normals: Vec<Vec3>,
     colors: Vec<[f32; 4]>,
     uvs: Vec<[f32; 2]>,
 }
 
-impl BevyMeshBuilder {
+impl MeshBuilder {
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -66,12 +66,12 @@ where
     #[must_use]
     pub fn bevy(&self, color_map: &HashMap<FaceKey<M>, [f32; 3]>) -> (bevy_render::mesh::Mesh, Vector3D, f64) {
         if self.faces.is_empty() {
-            return (BevyMeshBuilder::with_capacity(0).build(), Vector3D::new(0., 0., 0.), 1.);
+            return (MeshBuilder::with_capacity(0).build(), Vector3D::new(0., 0., 0.), 1.);
         }
 
         let k = self.vertices(self.faces.ids().next().unwrap()).len();
 
-        let mut bevy_mesh_builder = BevyMeshBuilder::with_capacity(self.faces.len() * (k - 2) * 3);
+        let mut bevy_mesh_builder = MeshBuilder::with_capacity(self.faces.len() * (k - 2) * 3);
 
         for face_id in self.faces.ids() {
             let corners = self.vertices(face_id);

@@ -68,6 +68,10 @@ impl<K, M, V> IdxMap<K, M, V> {
         Key::new(self.map.insert(value))
     }
 
+    pub fn remove(&mut self, key: Key<K, M>) -> bool {
+        self.map.remove(key.raw()).is_some()
+    }
+
     #[must_use]
     pub fn get(&self, key: Key<K, M>) -> Option<&V> {
         self.map.get(key.raw())
@@ -253,7 +257,6 @@ where
         self.map.clear();
     }
 
-    #[must_use]
     pub fn iter(&self) -> impl Iterator<Item = (Key<K, M>, &V)> + '_ {
         self.map.iter().map(|(raw, val)| (Key::new(raw), val))
     }

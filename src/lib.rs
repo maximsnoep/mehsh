@@ -9,6 +9,7 @@ pub mod mesh {
     }
     pub mod algo {
         pub mod refine;
+        pub mod triangulate;
         pub mod location {
             pub mod face;
             pub mod vert;
