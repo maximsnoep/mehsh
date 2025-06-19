@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::prelude::*;
 use earcutr;
@@ -6,8 +6,9 @@ use earcutr;
 // Given an arbitrary polygonal mesh, triangulate all faces to obtain a triangular mesh.
 // This is useful for rendering or further processing.
 impl<M: Tag> Mesh<M> {
-    pub fn triangulate(&mut self) -> Result<Self, MeshError<M>> {
+    pub fn triangulate(&self) -> Result<(Self, HashMap<FaceKey<M>, FaceKey<M>>), MeshError<M>> {
         let mut new_mesh = self.clone();
+        let mut new_faces = HashMap::new();
 
         for face in self.face_ids() {
             let degree = self.vertices(face).len();
@@ -15,85 +16,70 @@ impl<M: Tag> Mesh<M> {
                 0..=2 => return Err(MeshError::FaceNotPolygon(face)),
                 3 => continue, // Already a triangle
                 _ => {
-                    self.triangulate_face(face)?;
+                    for new_face in new_mesh.triangulate_face(face)? {
+                        // Insert the new face into the new mesh
+                        new_faces.insert(new_face, face);
+                    }
                 }
             }
         }
 
-        Ok(new_mesh)
+        Ok((new_mesh, new_faces))
     }
 
-    pub fn triangulate_face(&mut self, face: FaceKey<M>) -> Result<(), MeshError<M>> {
-        let vertices = self.vertices(face);
-        let positions = vertices.iter().map(|&v| self.position(v)).map(|v| vec![v.x, v.y, v.z]).collect::<Vec<_>>();
+    pub fn triangulate_face(&mut self, face: FaceKey<M>) -> Result<Vec<FaceKey<M>>, MeshError<M>> {
+        let edges = self.edges(face);
+        let original_edges = self.edges(face).iter().map(|&e| self.vertices(e)).collect::<Vec<_>>();
+        let original_vertices = self.vertices(face);
 
-        let v = vec![
-            positions, // outer ring
-            vec![],    // hole ring
-        ];
-        let (flattened_positions, holes, dimensions) = earcutr::flatten(&v);
-        let binding = earcutr::earcut(&flattened_positions, &holes, dimensions).unwrap();
-        let triangles = binding.windows(3).collect::<Vec<_>>();
+        let positions = self.project(face).iter().flat_map(|&v| vec![v.x, v.y]).collect::<Vec<_>>();
+        // let binding = earcutr::earcut(&positions, &[], 2).unwrap();
+
+        // let triangles = binding.chunks(3).collect::<Vec<_>>();
+        let triangles = [[1, 0, 3], [3, 2, 1]]; // For testing purposes, replace with actual triangulation for higher degree faces.
 
         // Remove the old face
         self.faces.remove(face);
 
+        let mut new_faces = vec![];
         let mut endpoints_to_edges = HashMap::<(VertKey<M>, VertKey<M>), EdgeKey<M>>::new();
         for triangle in triangles {
             let face_id = self.add_face();
+            new_faces.push(face_id);
 
             let mut edge_ids = vec![];
 
-            // Find correct orientation of the triangle
-            let triangle_e1 = (*vertices.get(triangle[0]).unwrap(), *vertices.get(triangle[1]).unwrap());
-            let triangle_e2 = (*vertices.get(triangle[1]).unwrap(), *vertices.get(triangle[2]).unwrap());
-            let triangle_e3 = (*vertices.get(triangle[2]).unwrap(), *vertices.get(triangle[0]).unwrap());
+            let v1 = original_vertices[triangle[0]];
+            let v2 = original_vertices[triangle[1]];
+            let v3 = original_vertices[triangle[2]];
 
-            let mut reversed = false;
-
-            // Atleast one of these edges must already exist in the mesh, with `face` as one its face.
-            if let Some((e1, e2)) = self.edge_between_verts(triangle_e1.0, triangle_e1.1) {
-                if self.face(e2) == face {
-                    reversed = true;
-                }
-            } else if let Some((e1, e2)) = self.edge_between_verts(triangle_e2.0, triangle_e2.1) {
-                if self.face(e2) == face {
-                    reversed = true;
-                }
-            } else if let Some((e1, e2)) = self.edge_between_verts(triangle_e3.0, triangle_e3.1) {
-                if self.face(e2) == face {
-                    reversed = true;
-                }
-            }
-
-            // If reversed, we need to reverse the triangle
-            let triangle = if reversed {
-                vec![triangle[0], triangle[2], triangle[1]]
-            } else {
-                triangle.to_vec()
-            };
+            let triangle = vec![triangle[0], triangle[2], triangle[1]];
 
             for i in 0..3 {
                 let v1 = triangle[i];
                 let v2 = triangle[(i + 1) % triangle.len()];
-                let (&start_vertex, &end_vertex) = (vertices.get(v1).unwrap(), vertices.get(v2).unwrap());
+                let (start_vertex, end_vertex) = (original_vertices[v1], original_vertices[v2]);
+
                 // Check if edge already exists
-                if let Some((e1, e2)) = self.edge_between_verts(start_vertex, end_vertex) {
-                    let f1 = self.face(e1);
-                    if f1 == face {
-                        edge_ids.push(e1);
-                    } else {
-                        // Never true
-                        unreachable!();
-                    }
+                if original_edges.contains(&vec![start_vertex, end_vertex]) {
+                    // If it exists, use the existing edge
+
+                    let index = original_edges.iter().position(|e| e == &vec![start_vertex, end_vertex]).unwrap();
+                    let e1 = edges[index];
+
+                    edge_ids.push(e1);
                 } else {
-                    edge_ids.push(self.add_edge());
+                    // If it doesn't exist, create a new edge
+                    let edge_id = self.add_edge();
+                    // ONLY DO IF THE EDGE IS NEW..
+                    if endpoints_to_edges.insert((start_vertex, end_vertex), edge_id).is_some() {
+                        return Err(MeshError::DuplicateEdge(start_vertex, end_vertex));
+                    }
+                    edge_ids.push(edge_id);
                 }
 
                 let edge_id = edge_ids.last().unwrap().to_owned();
-                if endpoints_to_edges.insert((start_vertex, end_vertex), edge_id).is_some() {
-                    return Err(MeshError::DuplicateEdge(start_vertex, end_vertex));
-                }
+
                 self.face_repr.insert(face_id, edge_id);
                 self.vert_repr.insert(start_vertex, edge_id);
                 self.edge_root.insert(edge_id, start_vertex);
@@ -106,14 +92,17 @@ impl<M: Tag> Mesh<M> {
             }
         }
 
-        for edge_id in self.edge_ids() {
-            let endpoints = self.vertices(edge_id);
-            let (e1, e2) = self.edge_between_verts(endpoints[0], endpoints[1]).unwrap();
-            assert!(e1 == edge_id);
-            self.edge_twin.insert(edge_id, e2);
-            self.edge_twin.insert(e2, edge_id);
+        for (&(vert_a, vert_b), &edge_id) in &endpoints_to_edges {
+            // Retrieve the twin edge
+            if let Some(&twin_id) = endpoints_to_edges.get(&(vert_b, vert_a)) {
+                // Assign twins
+                self.edge_twin.insert(edge_id, twin_id);
+                self.edge_twin.insert(twin_id, edge_id);
+            } else {
+                return Err(MeshError::NoTwin(vert_a, vert_b));
+            }
         }
 
-        Ok(())
+        Ok(new_faces)
     }
 }

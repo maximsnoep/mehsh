@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{mesh::algo::location::face, prelude::*};
 use bevy_math::Vec3;
 use core::panic;
 use std::collections::HashMap;
@@ -73,50 +73,32 @@ where
 
         let mut bevy_mesh_builder = MeshBuilder::with_capacity(self.faces.len() * (k - 2) * 3);
 
-        for face_id in self.faces.ids() {
-            let corners = self.vertices(face_id);
+        println!("before Mesh has {} vertices and {} faces", self.nr_verts(), self.nr_faces());
 
-            match corners.len() {
-                0..=2 => panic!("Face {:?} has too few corners", face_id),
-                3 => {
-                    let triangle = [corners[0], corners[1], corners[2]];
-                    for vertex_id in triangle {
-                        bevy_mesh_builder.add_vertex(
-                            &self.position(vertex_id),
-                            &self.normal(vertex_id),
-                            color_map.get(&face_id).unwrap_or(&[0., 0., 0.]),
-                        );
-                    }
-                }
-                4 => {
-                    let d1 = (self.position(corners[0]) - self.position(corners[2])).norm();
-                    let d2 = (self.position(corners[1]) - self.position(corners[3])).norm();
-                    let triangle = {
-                        if d1 < d2 {
-                            [corners[0], corners[1], corners[2], corners[2], corners[3], corners[0]]
-                        } else {
-                            [corners[0], corners[1], corners[3], corners[1], corners[2], corners[3]]
-                        }
-                    };
-                    for vertex_id in triangle {
-                        bevy_mesh_builder.add_vertex(
-                            &self.position(vertex_id),
-                            &self.normal(vertex_id),
-                            color_map.get(&face_id).unwrap_or(&[0., 0., 0.]),
-                        );
-                    }
-                }
-                _ => {
-                    // not implemented yet
-                    unimplemented!("Face {:?} has degree more than 4 ({})", face_id, corners.len());
-                }
+        let (triangle_mesh, face_map) = self.triangulate().unwrap();
+
+        println!("after Mesh has {} vertices and {} faces", triangle_mesh.nr_verts(), triangle_mesh.nr_faces());
+
+        for face_id in triangle_mesh.faces.ids() {
+            let corners = triangle_mesh.vertices(face_id);
+            let original_face = match face_map.get(&face_id) {
+                Some(&original_face) => original_face,
+                None => face_id,
+            };
+            let triangle = [corners[0], corners[1], corners[2]];
+            for vertex_id in triangle {
+                bevy_mesh_builder.add_vertex(
+                    &triangle_mesh.position(vertex_id),
+                    &triangle_mesh.normal(vertex_id),
+                    color_map.get(&original_face).unwrap_or(&[0., 0., 0.]),
+                );
             }
         }
 
         let (scale, translation) = self.scale_translation();
         bevy_mesh_builder.normalize(scale, translation);
-        let mesh = bevy_mesh_builder.build();
-        (mesh, translation, scale)
+
+        (bevy_mesh_builder.build(), translation, scale)
     }
 
     // Construct a Bevy gizmos object of the wireframe (one that can be rendered using Bevy)

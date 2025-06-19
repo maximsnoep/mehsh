@@ -1,9 +1,6 @@
 use crate::prelude::*;
 
-impl<M: Tag> Mesh<M>
-where
-    M: std::default::Default + std::cmp::Eq + std::hash::Hash + Copy + Clone,
-{
+impl<M: Tag> Mesh<M> {
     pub fn split_edge(&mut self, edge_id: EdgeKey<M>) -> (VertKey<M>, [FaceKey<M>; 4]) {
         // First face
         let e_ab = edge_id;
