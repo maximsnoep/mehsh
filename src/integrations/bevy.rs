@@ -119,14 +119,8 @@ where
     #[must_use]
     pub fn scale_translation(&self) -> (f64, Vector3D) {
         let scale = self.scale();
-        let (center, _half_extents) = self.get_aabb();
+        let center = self.center();
         (scale, -scale * center)
-    }
-
-    #[must_use]
-    pub fn scale(&self) -> f64 {
-        let (_, half_extents) = self.get_aabb();
-        20. * (1. / half_extents.max())
     }
 }
 

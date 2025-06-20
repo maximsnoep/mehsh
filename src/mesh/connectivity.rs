@@ -183,6 +183,18 @@ impl<M: Tag> Mesh<M> {
         let half_extents = (max - min) / 2.0;
         (center, half_extents)
     }
+
+    #[must_use]
+    pub fn center(&self) -> Vector3D {
+        let (center, _half_extents) = self.get_aabb();
+        center
+    }
+
+    #[must_use]
+    pub fn scale(&self) -> f64 {
+        let (_, half_extents) = self.get_aabb();
+        20. * (1. / half_extents.max())
+    }
 }
 
 pub trait SetPosition<K, M> {
