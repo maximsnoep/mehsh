@@ -186,14 +186,14 @@ impl<M: Tag> Mesh<M> {
 
     #[must_use]
     pub fn center(&self) -> Vector3D {
-        let (center, _half_extents) = self.get_aabb();
+        let (center, _) = self.get_aabb();
         center
     }
 
     #[must_use]
-    pub fn scale(&self) -> f64 {
+    pub fn max_dim(&self) -> f64 {
         let (_, half_extents) = self.get_aabb();
-        20. * (1. / half_extents.max())
+        half_extents.max()
     }
 }
 
